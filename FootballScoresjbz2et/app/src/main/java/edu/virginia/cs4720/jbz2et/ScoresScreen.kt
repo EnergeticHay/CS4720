@@ -70,6 +70,11 @@ fun ScoresScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
+        Text(
+            text = "College Football Scores",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
+        )
         ControlsBar(
             week = state.week,
             division = state.division,
