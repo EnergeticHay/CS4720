@@ -34,30 +34,174 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
 
 @Composable
 fun ScoresRoute(modifier: Modifier = Modifier) {
     val vm: ScoresViewModel = viewModel(factory = ScoresViewModel.Factory)
     val state by vm.state.collectAsStateWithLifecycle()
-    ScoresScreen(state = state, modifier = modifier)
+    ScoresScreen(
+        state = state,
+        onWeekSelected = { vm.selectWeek(it) },
+        onDivisionSelected = { vm.selectDivision(it) },
+        onRefresh = { vm.refresh() },
+        modifier = modifier
+    )
 }
 
 @Composable
-fun ScoresScreen(state: ScoresScreenState, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        when (val ui = state.uiState) {
-            ScoresUiState.Loading -> CircularProgressIndicator()
-            ScoresUiState.Error -> Text("Couldn't load scores")
-            is ScoresUiState.Success -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(ui.games, key = { it.gameId }) { game ->
-                    GameRow(game = game)
+fun ScoresScreen(
+    state: ScoresScreenState,
+    onWeekSelected: (Int) -> Unit,
+    onDivisionSelected: (String) -> Unit,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        ControlsBar(
+            week = state.week,
+            division = state.division,
+            isRefreshing = state.isRefreshing,
+            onWeekSelected = onWeekSelected,
+            onDivisionSelected = onDivisionSelected,
+            onRefresh = onRefresh
+        )
+        Box(modifier = Modifier.fillMaxWidth().height(4.dp)) {
+            if (state.isRefreshing) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            when (val ui = state.uiState) {
+                ScoresUiState.Loading -> CircularProgressIndicator()
+                ScoresUiState.Error -> ErrorState(onRetry = onRefresh)
+                is ScoresUiState.Success -> if (ui.games.isEmpty()) {
+                    EmptyState()
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(ui.games, key = { it.gameId }) { game ->
+                            GameRow(game = game)
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ControlsBar(
+    week: Int,
+    division: String,
+    isRefreshing: Boolean,
+    onWeekSelected: (Int) -> Unit,
+    onDivisionSelected: (String) -> Unit,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box {
+            OutlinedButton(onClick = { menuOpen = true }) {
+                Text("Week $week")
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                (1..14).forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text("Week $option") },
+                        onClick = {
+                            menuOpen = false
+                            onWeekSelected(option)
+                        }
+                    )
+                }
+            }
+        }
+        FilterChip(
+            selected = division == "fbs",
+            onClick = { onDivisionSelected("fbs") },
+            label = { Text("FBS") }
+        )
+        FilterChip(
+            selected = division == "fcs",
+            onClick = { onDivisionSelected("fcs") },
+            label = { Text("FCS") }
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh")
+        }
+    }
+}
+
+@Composable
+fun ErrorState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Warning,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(48.dp)
+        )
+        Text(text = "Couldn't load scores", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = "Check your connection and try again.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Button(onClick = onRetry) {
+            Text("Retry")
+        }
+    }
+}
+
+@Composable
+fun EmptyState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.DateRange,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(48.dp)
+        )
+        Text(text = "No games this week", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = "Try a different week or division.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
