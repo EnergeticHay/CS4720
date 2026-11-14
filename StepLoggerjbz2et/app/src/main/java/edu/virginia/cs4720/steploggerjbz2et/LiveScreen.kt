@@ -10,15 +10,18 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,7 +30,11 @@ import kotlin.math.abs
 private const val MAX_AXIS = 20f
 
 @Composable
-fun LiveScreen(viewModel: StepViewModel) {
+fun LiveScreen(
+    viewModel: StepViewModel,
+    onAllowSteps: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     Column(
         modifier = Modifier
@@ -38,24 +45,29 @@ fun LiveScreen(viewModel: StepViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Step Logger", style = MaterialTheme.typography.headlineMedium)
-        StepsCard(state)
+        StepsCard(state, onAllowSteps, onOpenSettings)
         AccelerometerCard(state)
     }
 }
 
 @Composable
-private fun StepsCard(state: StepUiState) {
+private fun StepsCard(
+    state: StepUiState,
+    onAllowSteps: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    val appName = stringResource(R.string.app_name)
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Today's steps", style = MaterialTheme.typography.titleMedium)
-            when (state.source) {
-                StepSource.NONE -> Text(
+            when {
+                state.source == StepSource.NONE -> Text(
                     "This device has no step counter or accelerometer, so step counting is not available here."
                 )
-                else -> {
+                state.access == StepAccess.GRANTED -> {
                     Text(
                         "%,d".format(state.todaySteps),
                         style = MaterialTheme.typography.displayLarge,
@@ -70,6 +82,30 @@ private fun StepsCard(state: StepUiState) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                state.access == StepAccess.NOT_ASKED -> {
+                    Text(
+                        "$appName needs the Physical activity permission to count your steps, and your step totals never leave this phone.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Button(onClick = onAllowSteps) { Text("Turn on step counting") }
+                }
+                else -> {
+                    Text(
+                        "Step counting is unavailable because the Physical activity permission is off. The live accelerometer below still works.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "To turn it on later, open Settings > Apps > $appName > Permissions > Physical activity and choose Allow.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onOpenSettings) { Text("Open Settings") }
+                        if (state.canAskAgain) {
+                            OutlinedButton(onClick = onAllowSteps) { Text("Ask again") }
+                        }
+                    }
                 }
             }
         }
