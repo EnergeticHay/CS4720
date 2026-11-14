@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,7 +38,41 @@ fun LiveScreen(viewModel: StepViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Step Logger", style = MaterialTheme.typography.headlineMedium)
+        StepsCard(state)
         AccelerometerCard(state)
+    }
+}
+
+@Composable
+private fun StepsCard(state: StepUiState) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Today's steps", style = MaterialTheme.typography.titleMedium)
+            when (state.source) {
+                StepSource.NONE -> Text(
+                    "This device has no step counter or accelerometer, so step counting is not available here."
+                )
+                else -> {
+                    Text(
+                        "%,d".format(state.todaySteps),
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        if (state.source == StepSource.HARDWARE) {
+                            "Counted by this device's hardware step counter."
+                        } else {
+                            "Estimated from the accelerometer because this device has no step counter."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -53,6 +88,18 @@ private fun AccelerometerCard(state: StepUiState) {
                 AxisRow("X", state.x)
                 AxisRow("Y", state.y)
                 AxisRow("Z", state.z)
+                HorizontalDivider()
+                Text(
+                    "Smoothed magnitude: %.2f".format(state.magnitude),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (state.source == StepSource.ACCELEROMETER) {
+                    Text(
+                        "A step counts when this peaks above %.1f".format(AccelStepDetector.STEP_THRESHOLD),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             } else {
                 Text("This device has no accelerometer, so live motion values are not available.")
             }
