@@ -20,7 +20,7 @@ import androidx.core.content.ContextCompat
 import edu.virginia.cs4720.steploggerjbz2et.ui.theme.StepLoggerjbz2etTheme
 
 class MainActivity : ComponentActivity(), SensorEventListener {
-    private val viewModel: StepViewModel by viewModels()
+    private val viewModel: StepViewModel by viewModels { StepViewModel.Factory }
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
     private var stepCounter: Sensor? = null
@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         enableEdgeToEdge()
         setContent {
             StepLoggerjbz2etTheme {
-                LiveScreen(
+                StepLoggerApp(
                     viewModel = viewModel,
                     onAllowSteps = ::requestStepPermission,
                     onOpenSettings = ::openAppSettings
@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         super.onPause()
         sensorManager.unregisterListener(this)
         stepListenerRegistered = false
+        viewModel.flush()
     }
 
     override fun onSensorChanged(event: SensorEvent) {
